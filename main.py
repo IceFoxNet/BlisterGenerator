@@ -280,7 +280,7 @@ async def main(start, end, setup: dict):
                     # result = cv2.cvtColor(img, cv2.COLOR_BGR2BGRA)
                     # result[:, :, 3] = object_mask
                     output_path = file_path.replace('.jpg', '_no_bg.png')
-                    cv2.imwrite(output_path, result)
+                    result.save(output_path)
                 except Exception as e:
                     print(f"Ошибка при удалении фона для изображения {art} (вторая фотография): {e}")
                     output_path = file_path  # Оставляем оригинал, если что-то пошло не так
@@ -337,7 +337,7 @@ async def main(start, end, setup: dict):
                 # result = cv2.cvtColor(img, cv2.COLOR_BGR2BGRA)
                 # result[:, :, 3] = object_mask
                 output_path = file_path.replace('.jpg', '_no_bg.png')
-                cv2.imwrite(output_path, result)
+                result.save(output_path)
             except Exception as e:
                 print(f"Ошибка при удалении фона для изображения {art}: {e}")
                 continue
