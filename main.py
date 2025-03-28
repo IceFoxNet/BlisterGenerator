@@ -1,14 +1,14 @@
-from pip._internal import main as pip
+import os
 
 while True:
     try:
         from PIL import Image, ImageFont, ImageDraw
         from rembg import remove
-        import os, cv2, time, aiohttp
+        import cv2, time, aiohttp
         import numpy as np, pathlib, yadisk, gspread
     except ImportError as e:
         package = e.msg.split()[-1][1:-1]
-        pip(['install', package])
+        os.system(f'python -m pip install {package}')
     else:
         break
 
