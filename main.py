@@ -104,8 +104,10 @@ except FileNotFoundError:
 # ======================= ОБРАБОТКА ИЗОБРАЖЕНИЙ =======================
 
 # Асинхронная основная обработка изображений
-async def main(start, end, setup: dict):
+async def main(start: int, end: int, setup: dict):
 
+    if start < 3: start = 3
+    
     sheet: gspread.spreadsheet.Spreadsheet = setup.get('GoogleSheet')
     yandex: yadisk.YaDisk = setup.get('YandexDisk')
     worksheet = sheet.worksheet("📦 Фигурки")
