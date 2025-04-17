@@ -5,7 +5,7 @@ while True:
         from PIL import Image, ImageFont, ImageDraw
         from rembg import remove
         import cv2, time, aiohttp
-        import numpy as np, pathlib, yadisk, gspread
+        import pathlib, yadisk, gspread
     except ImportError as e:
         package = e.msg.split()[-1][1:-1]
         os.system(f'python -m pip install {package}')
@@ -111,12 +111,15 @@ async def main(start: int, end: int, setup: dict):
     sheet: gspread.spreadsheet.Spreadsheet = setup.get('GoogleSheet')
     yandex: yadisk.YaDisk = setup.get('YandexDisk')
     worksheet = sheet.worksheet("📦 Фигурки")
-    arts = worksheet.col_values(4)[2:]  # Все данные из столбца 4 (артикул)
+    arts = worksheet.range(f'D{start}:D{end}')  # Все данные из столбца 4 (артикул)
+    prices = worksheet.range(f'G{start}:G{end}')  # Все данные из столбца 7 (цена)
+    names = worksheet.range(f'C{start}:C{end}')  # Все данные из столбца 3 (названия)
+    serieses = worksheet.range(f'B{start}:B{end}')  # Все данные из столбца 2 (серия)
     
     async with aiohttp.ClientSession(proxy='http://user258866:pe9qf7@166.0.211.142:7576') as session:
-        for i in range(start-2, end-1):
+        for i in range(start, end+1):
             if i < len(arts):
-                art = arts[i]
+                art = arts[i].value
             else:
                 break  # Завершаем цикл, если индекс выходит за пределы
             if not art:
@@ -124,9 +127,9 @@ async def main(start: int, end: int, setup: dict):
                 continue
 
             typ = 'Minifigure'
-            price = (worksheet.cell(i+3, 7).value or "Не указана") + '₽'
-            name = worksheet.cell(i+3, 3).value or "Без названия"
-            series = worksheet.cell(i+3, 2).value or "Без серии"
+            price = (prices[i].value or "Не указана") + '₽'
+            name = names[i].value or "Без названия"
+            series = serieses[i].value or "Без серии"
 
             # Загрузка изображения
             file_path = await download_image(session, art)
