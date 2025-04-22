@@ -3,10 +3,11 @@ import os
 while True:
     try:
         from PIL import Image, ImageFont, ImageDraw
-        from rembg import remove
-        import cv2, time, aiohttp
         import pathlib, yadisk, gspread
+        import cv2, time, aiohttp, pathlib
+        from rembg import remove
     except ImportError as e:
+        print(e)
         package = e.msg.split()[-1][1:-1]
         os.system(f'python -m pip install {package}')
     else:
@@ -117,17 +118,13 @@ async def main(start: int, end: int, setup: dict):
     serieses = worksheet.range(f'B{start}:B{end}')  # Все данные из столбца 2 (серия)
     
     async with aiohttp.ClientSession(proxy='http://user258866:pe9qf7@166.0.211.142:7576') as session:
-        for i in range(start, end+1):
-            if i < len(arts):
-                art = arts[i].value
-            else:
-                break  # Завершаем цикл, если индекс выходит за пределы
+        for i in range(len(arts)):
+            art = arts[i].value
             if not art:
                 print(f"Пропущена строка {i+1}: значение отсутствует.")
                 continue
 
             typ = 'Minifigure'
-            price = (prices[i].value or "Не указана") + '₽'
             name = names[i].value or "Без названия"
             series = serieses[i].value or "Без серии"
 
@@ -199,9 +196,6 @@ async def main(start: int, end: int, setup: dict):
             # Текст "typ"
             drawer.text((102, 931.5), typ, font=main_font_42_medium, fill='black')
 
-            # Текст с ценой
-            drawer.text((60, 393), price, font=main_font_82_bold, fill='black')
-
             # Функция для разбивки текста на строки
             def wrap_text_to_box(text, font, max_width):
                 words = text.split(' ')
@@ -263,142 +257,73 @@ async def main(start: int, end: int, setup: dict):
                 # Увеличиваем Y для следующей строки
                 y_offset += line_height
             
-            # =========================== ПЕРВАЯ ФОТОГРАФИЯ (ФИГУРКА) ===========================
+            # =========================== ПЕРВАЯ ФОТОГРАФИЯ (ФИГУРКА + КОРОБКА) ===========================
             
-            img1 = main_template.copy()
-            
-            # Проверяем, является ли фон белым
-            if not is_white_background(file_path):
-                try:
-                    img = Image.open(file_path)
-                    result = remove(img)
-                    # img = cv2.imread(file_path)
-                    # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                    # _, mask = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY_INV)
-                    # contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                    # largest_contour = max(contours, key=cv2.contourArea)
-                    # object_mask = np.zeros_like(mask)
-                    # cv2.drawContours(object_mask, [largest_contour], -1, 255, thickness=cv2.FILLED)
-                    # SE = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (4, 4))
-                    # object_mask = cv2.bitwise_not(cv2.morphologyEx(cv2.bitwise_not(object_mask), cv2.MORPH_DILATE, SE))
-                    # object_mask = cv2.GaussianBlur(object_mask, (1, 1), 0)
-                    # result = cv2.cvtColor(img, cv2.COLOR_BGR2BGRA)
-                    # result[:, :, 3] = object_mask
-                    output_path = file_path.replace('.jpg', '_no_bg.png')
-                    result.save(output_path)
-                except Exception as e:
-                    print(f"Ошибка при удалении фона для изображения {art} (вторая фотография): {e}")
-                    output_path = file_path  # Оставляем оригинал, если что-то пошло не так
-            else:
-                output_path = file_path  # Если фон белый, оставляем оригинальное изображение
-            
-            # Открываем изображение для первой фотографии
-            try:
-                with Image.open(output_path).convert("RGBA") as img2:
-                    img2 = img2.resize((int(624 / img2.height * img2.width), 624))
-                    white_bg = Image.new("RGBA", img2.size, (255, 255, 255, 255))
-                    img2 = Image.alpha_composite(white_bg, img2)
+            flag = False
+            num = 1
 
-                    center_x = (520 + 1080) / 2
-                    position_x = center_x - img2.width / 2
-                    position_y = 1020 - img2.height
-
-                    img1.paste(img2, (int(position_x), int(position_y)))
-            except FileNotFoundError:
-                print(f"Изображение {output_path} не найдено.")
-                continue
-
-            # Сохраняем первое финальное изображение
-            img1 = Image.alpha_composite(img1, overlay)
-            final_output_path = os.path.join(workspace, f'{art}_1.png')
-            img1.save(final_output_path)
-            try:
-                yandex.makedirs(f'Авито/{art}')
-            except:
-                pass
-            yandex.upload(final_output_path, f'Авито/{art}/{art}_1.png', overwrite=True)
-            print(f"Первая фотография для артикула {art} сохранена: {final_output_path}")
-            os.remove(final_output_path)
-            
-            # =========================== ВТОРАЯ ФОТОГРАФИЯ (ФИГУРКА + КОРОБКА) ===========================
-            
-            second_output_path = os.path.join(workspace, f'{art}_2.png')
-            res_img2 = main_template.copy()
+            card_output_path = os.path.join(workspace, f'{art}_{num}.png')
+            res_img = main_template.copy()
             
             # Основной блок обработки
             try:
                 img = Image.open(file_path)
                 result = remove(img)
-                # img = cv2.imread(file_path)
-                # gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                # _, mask = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY_INV)
-                # contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                # largest_contour = max(contours, key=cv2.contourArea)
-                # object_mask = np.zeros_like(mask)
-                # cv2.drawContours(object_mask, [largest_contour], -1, 255, thickness=cv2.FILLED)
-                # SE = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (4, 4))
-                # object_mask = cv2.bitwise_not(cv2.morphologyEx(cv2.bitwise_not(object_mask), cv2.MORPH_DILATE, SE))
-                # object_mask = cv2.GaussianBlur(object_mask, (1, 1), 0)
-                # result = cv2.cvtColor(img, cv2.COLOR_BGR2BGRA)
-                # result[:, :, 3] = object_mask
                 output_path = file_path.replace('.jpg', '_no_bg.png')
                 result.save(output_path)
             except Exception as e:
                 print(f"Ошибка при удалении фона для изображения {art}: {e}")
-                continue
+                flag = True
             
-            try:
-                # Очищаем название серии от пробелов и других символов
-                cleaned_series = series.replace(" ", "").replace("/", "_").replace("\\", "_").replace(":", "_").replace(
-                    "*", "_").replace("?", "_").replace('"', "_").replace("<", "_").replace(">", "_").replace("|", "_")
+            if not flag:
+                try:
+                    # Очищаем название серии от пробелов и других символов
+                    cleaned_series = series.replace(" ", "").replace("/", "_").replace("\\", "_").replace(":", "_").replace(
+                        "*", "_").replace("?", "_").replace('"', "_").replace("<", "_").replace(">", "_").replace("|", "_")
 
-                # Формируем путь к файлу в папке Blister
-                blister_image_path = os.path.join(os.path.join(workspace, "Blister"),                         
-                f"{cleaned_series}_Front.png")  # Или .jpg, в зависимости от формата
-                if os.path.exists(blister_image_path):
-                    with Image.open(blister_image_path).convert("RGBA") as blister_img:
-                        # Накладываем изображение из Blister по тем же координатам, что и фигурка
-                        blister_img = blister_img.resize((int(730 / blister_img.height * blister_img.width), 730))
-                        center_x = (500 + 1080) / 2
-                        position_x = center_x - blister_img.width / 2
-                        position_y = 1025 - blister_img.height
-                        res_img2.paste(blister_img, (int(position_x), int(position_y)), mask=blister_img)
+                    # Формируем путь к файлу в папке Blister
+                    blister_image_path = os.path.join(os.path.join(workspace, "Blister"),                         
+                    f"{cleaned_series}_Front.png")  # Или .jpg, в зависимости от формата
+                    if os.path.exists(blister_image_path):
+                        with Image.open(blister_image_path).convert("RGBA") as blister_img:
+                            # Накладываем изображение из Blister по тем же координатам, что и фигурка
+                            blister_img = blister_img.resize((int(730 / blister_img.height * blister_img.width), 730))
+                            center_x = (500 + 1080) / 2
+                            position_x = center_x - blister_img.width / 2
+                            position_y = 1025 - blister_img.height
+                            res_img.paste(blister_img, (int(position_x), int(position_y)), mask=blister_img)
+                    else:
+                        print(f"Изображение Blister для серии {series} не найдено: {blister_image_path}")
+                        raise FileNotFoundError('Блистер не найден')
+
+                    # Загружаем и накладываем фотографию фигурки
+                    with Image.open(output_path).convert("RGBA") as img1:
+                        img1 = img1.resize((int(245 / img1.height * img1.width), 245))
+                        img1_overlay = Image.new('RGBA', img1.size, (216, 223, 243, int(225 * 0.1)))
+                        masked_overlay = Image.new('RGBA', img1.size, (0, 0, 0, 0))
+                        masked_overlay.paste(img1_overlay, mask=img1)
+                        img1_with_opacity = Image.alpha_composite(img1, masked_overlay)
+                        center_x = (510 + 1080) / 2
+                        position_x = center_x - img1_with_opacity.width / 2
+                        position_y = 925 - img1_with_opacity.height
+
+                        res_img.paste(img1_with_opacity, (int(position_x), int(position_y)), mask=img1_with_opacity)
+                except Exception as e:
+                    print(f"Ошибка при обработке первой фотографии: {e}")
                 else:
-                    print(f"Изображение Blister для серии {series} не найдено: {blister_image_path}")
-                    continue
+                    # Сохраняем финальное изображение (первая фотография)
+                    res_img = Image.alpha_composite(res_img, overlay)
+                    res_img.save(card_output_path)
+                    yandex.upload(card_output_path, f'Авито/{art}/{art}_{num}.png', overwrite=True)
+                    print(f"Первая фотография для артикула {art} сохранена: {card_output_path}")
+                    os.remove(card_output_path)
+                    num += 1
+            
+            # =========================== ВТОРАЯ ФОТОГРАФИЯ (КОРОБКА) ===========================
 
-                # Загружаем и накладываем фотографию фигурки
-                with Image.open(output_path).convert("RGBA") as img2:
-                    img2 = img2.resize((int(245 / img2.height * img2.width), 245))
-
-                    # Создаем изображение с прозрачностью 75%
-                    img2_with_opacity = Image.new("RGBA", img2.size)
-                    for x in range(img2.width):
-                        for y in range(img2.height):
-                            r, g, b, a = img2.getpixel((x, y))
-                            img2_with_opacity.putpixel((x, y),
-                                                       (r, g, b, int(a * 0.75)))  # Устанавливаем прозрачность 75%
-
-                    center_x = (510 + 1080) / 2
-                    position_x = center_x - img2_with_opacity.width / 2
-                    position_y = 925 - img2_with_opacity.height
-
-                    res_img2.paste(img2_with_opacity, (int(position_x), int(position_y)), mask=img2_with_opacity)
-            except FileNotFoundError:
-                print(f"Изображение {output_path} не найдено.")
-                continue
-
-            # Сохраняем финальное изображение (вторая фотография)
-            res_img2 = Image.alpha_composite(res_img2, overlay)
-            res_img2.save(second_output_path)
-            yandex.upload(second_output_path, f'Авито/{art}/{art}_2.png', overwrite=True)
-            print(f"Вторая фотография для артикула {art} сохранена: {second_output_path}")
-            os.remove(second_output_path)
-
-            # =========================== ТРЕТЬЯ ФОТОГРАФИЯ (КОРОБКА) ===========================
-
-            third_output_path = os.path.join(workspace, f'{art}_3.png')
-            img3 = main_template.copy()
+            flag = False
+            card_output_path = os.path.join(workspace, f'{art}_{num}.png')
+            res_img = main_template.copy()
 
             # Формируем путь к файлу в папке Blister
             blister_image_path = os.path.join(os.path.join(workspace, "Blister"),
@@ -410,16 +335,69 @@ async def main(start: int, end: int, setup: dict):
                     center_x = (500 + 1080) / 2
                     position_x = center_x - blister_img.width / 2
                     position_y = 1025 - blister_img.height
-                    img3.paste(blister_img, (int(position_x), int(position_y)), mask=blister_img)
+                    res_img.paste(blister_img, (int(position_x), int(position_y)), mask=blister_img)
             else:
                 print(f"Изображение Blister для серии {series} не найдено: {blister_image_path}")
-                continue
+                flag = True
             
-            img3 = Image.alpha_composite(img3, overlay)
-            img3.save(third_output_path)
-            yandex.upload(third_output_path, f'Авито/{art}/{art}_3.png', overwrite=True)
-            print(f"Третья фотография для артикула {art} сохранена: {third_output_path}")
-            os.remove(third_output_path)
+            if not flag:
+                img2 = Image.alpha_composite(res_img, overlay)
+                img2.save(card_output_path)
+                yandex.upload(card_output_path, f'Авито/{art}/{art}_{num}.png', overwrite=True)
+                print(f"Вторая фотография для артикула {art} сохранена: {card_output_path}")
+                os.remove(card_output_path)
+                num += 1
+
+            # =========================== ТРЕТЬЯ ФОТОГРАФИЯ (ФИГУРКА) ===========================
+            
+            flag = False
+            card_output_path = os.path.join(workspace, f'{art}_{num}.png')
+            res_img = main_template.copy()
+            
+            # Проверяем, является ли фон белым
+            if not is_white_background(file_path):
+                try:
+                    img = Image.open(file_path)
+                    result = remove(img)
+                    output_path = file_path.replace('.jpg', '_no_bg.png')
+                    result.save(output_path)
+                except Exception as e:
+                    print(f"Ошибка при удалении фона для изображения {art} (вторая фотография): {e}")
+                    output_path = file_path  # Оставляем оригинал, если что-то пошло не так
+            else:
+                output_path = file_path  # Если фон белый, оставляем оригинальное изображение
+            
+            # Открываем изображение для третьей фотографии
+            try:
+                with Image.open(output_path).convert("RGBA") as img3:
+                    img3 = img3.resize((int(624 / img3.height * img3.width), 624))
+                    white_bg = Image.new("RGBA", img3.size, (255, 255, 255, 255))
+                    figure_img = Image.alpha_composite(white_bg, img3)
+
+                    center_x = (520 + 1080) / 2
+                    position_x = center_x - img3.width / 2
+                    position_y = 1020 - img3.height
+
+                    res_img.paste(figure_img, (int(position_x), int(position_y)))
+            except FileNotFoundError:
+                print(f"Изображение {output_path} не найдено.")
+            else:
+                # Сохраняем первое финальное изображение
+                img3 = Image.alpha_composite(res_img, overlay)
+                output_path = os.path.join(workspace, f'{art}_{num}.png')
+                img3.save(output_path)
+                try:
+                    yandex.makedirs(f'Авито/{art}')
+                except:
+                    pass
+                yandex.upload(card_output_path, f'Авито/{art}/{art}_{num}.png', overwrite=True)
+                print(f"Третья фотография для артикула {art} сохранена: {card_output_path}")
+                os.remove(card_output_path)
             
             # Добавляем задержку между запросами
             time.sleep(3)  # Задержка на 1 секунду между запросами
+
+if __name__ == '__main__':
+    from Setup.setup import setup
+    import asyncio
+    asyncio.run(main(218, 218, setup))
