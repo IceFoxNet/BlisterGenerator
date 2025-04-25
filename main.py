@@ -109,7 +109,7 @@ async def main(start: int, end: int, setup: dict):
 
     if start < 3: start = 3
     
-    sheet: gspread.spreadsheet.Spreadsheet = setup.get('GoogleSheet')
+    sheet: gspread.spreadsheet.Spreadsheet = setup.get('AutoloadSheet')
     yandex: yadisk.YaDisk = setup.get('YandexDisk')
     worksheet = sheet.worksheet("📦 Фигурки")
     arts = worksheet.range(f'D{start}:D{end}')  # Все данные из столбца 4 (артикул)
