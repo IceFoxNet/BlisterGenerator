@@ -259,6 +259,15 @@ async def main(start: int, end: int, setup: dict):
             
             # =========================== ПЕРВАЯ ФОТОГРАФИЯ (ФИГУРКА + КОРОБКА) ===========================
             
+            try:
+                yandex.remove(f'Авито/{art}')
+            except:
+                pass
+            try:
+                yandex.mkdir(f'Авито/{art}')
+            except:
+                pass
+            
             flag = False
             num = 1
 
