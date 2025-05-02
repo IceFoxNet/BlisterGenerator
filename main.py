@@ -2,7 +2,7 @@ import os
 
 while True:
     try:
-        from PIL import Image, ImageFont, ImageDraw
+        from PIL import Image, ImageFont, ImageDraw, ImageEnhance
         import pathlib, yadisk, gspread
         import cv2, time, aiohttp, pathlib
         from rembg import remove
@@ -315,6 +315,10 @@ async def main(start: int, end: int, setup: dict):
                         center_x = (510 + 1080) / 2
                         position_x = center_x - img1_with_opacity.width / 2
                         position_y = 925 - img1_with_opacity.height
+                        bright_enhance = ImageEnhance.Brightness(img1_with_opacity)
+                        img1_with_opacity = bright_enhance.enhance(0.75)
+                        contrast_enhance = ImageEnhance.Contrast(img1_with_opacity)
+                        img1_with_opacity = contrast_enhance.enhance(1.5)
 
                         res_img.paste(img1_with_opacity, (int(position_x), int(position_y)), mask=img1_with_opacity)
                 except Exception as e:
@@ -409,4 +413,4 @@ async def main(start: int, end: int, setup: dict):
 if __name__ == '__main__':
     from Setup.setup import setup
     import asyncio
-    asyncio.run(main(218, 218, setup))
+    asyncio.run(main(216, 216, setup))
