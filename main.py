@@ -316,9 +316,9 @@ async def main(start: int, end: int, setup: dict):
                         position_x = center_x - img1_with_opacity.width / 2
                         position_y = 925 - img1_with_opacity.height
                         bright_enhance = ImageEnhance.Brightness(img1_with_opacity)
-                        img1_with_opacity = bright_enhance.enhance(0.75)
+                        img1_with_opacity = bright_enhance.enhance(0.7)
                         contrast_enhance = ImageEnhance.Contrast(img1_with_opacity)
-                        img1_with_opacity = contrast_enhance.enhance(1.5)
+                        img1_with_opacity = contrast_enhance.enhance(1.65)
 
                         res_img.paste(img1_with_opacity, (int(position_x), int(position_y)), mask=img1_with_opacity)
                 except Exception as e:
