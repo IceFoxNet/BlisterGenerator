@@ -1,3 +1,4 @@
+from scope_db import DBConnect
 import os
 
 while True:
@@ -6,7 +7,6 @@ while True:
         import pathlib, yadisk, gspread
         import cv2, time, aiohttp, pathlib
         from rembg import remove
-        from database import DBConnect
     except ImportError as e:
         print(e)
         package = e.msg.split()[-1][1:-1]
