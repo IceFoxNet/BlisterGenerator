@@ -6,6 +6,7 @@ while True:
         import pathlib, yadisk, gspread
         import cv2, time, aiohttp, pathlib
         from rembg import remove
+        from database import DBConnect
     except ImportError as e:
         print(e)
         package = e.msg.split()[-1][1:-1]
@@ -111,10 +112,10 @@ async def main(start: int, end: int, setup: dict):
     
     sheet: gspread.spreadsheet.Spreadsheet = setup.get('AutoloadSheet')
     yandex: yadisk.YaDisk = setup.get('YandexDisk')
-    worksheet = sheet.worksheet("📦 Фигурки")
+    worksheet = sheet.worksheet("📦 Фигурки") 
+    dbconn = DBConnect(setup.get('AppInfo'))
     arts = worksheet.range(f'D{start}:D{end}')  # Все данные из столбца 4 (артикул)
-    prices = worksheet.range(f'G{start}:G{end}')  # Все данные из столбца 7 (цена)
-    names = worksheet.range(f'C{start}:C{end}')  # Все данные из столбца 3 (названия)
+    names = worksheet.range(f'C{start}:C{end}')  # Все данные из столбца 3 (название)
     serieses = worksheet.range(f'B{start}:B{end}')  # Все данные из столбца 2 (серия)
     
     async with aiohttp.ClientSession(proxy='http://user258866:pe9qf7@166.0.211.142:7576') as session:
@@ -122,6 +123,10 @@ async def main(start: int, end: int, setup: dict):
             art = arts[i].value
             if not art:
                 print(f"Пропущена строка {i+1}: значение отсутствует.")
+                continue
+
+            if dbconn.is_actual_media_generated(art):
+                print(f'Пропущен артикул {art}: актуальные карточки блистеров уже сгенерированы')
                 continue
 
             typ = 'Minifigure'
@@ -327,8 +332,15 @@ async def main(start: int, end: int, setup: dict):
                     # Сохраняем финальное изображение (первая фотография)
                     res_img = Image.alpha_composite(res_img, overlay)
                     res_img.save(card_output_path)
-                    yandex.upload(card_output_path, f'Авито/{art}/{art}_{num}.png', overwrite=True)
-                    print(f"Первая фотография для артикула {art} сохранена: {card_output_path}")
+                    disk_path = f'Авито/{art}/{art}_{num}.png'
+                    yandex.upload(card_output_path, disk_path, overwrite=True)
+                    yandex.publish(disk_path)
+                    media_url = yandex.get_meta(disk_path).public_url
+                    if media_url is not None:
+                        media_url = media_url.replace('yadi.sk', 'disk.yandex.ru')
+                    dbconn.delete_media(art, disk_path)
+                    dbconn.create_media(media_url, disk_path, art, f'ID-M-{art}-0-0', f'Карточка с блистером, фигурка + коробка, фотография BrickLink, {series}, {name}')
+                    print(f"Первая фотография для артикула {art} сохранена")
                     os.remove(card_output_path)
                     num += 1
             
@@ -356,8 +368,15 @@ async def main(start: int, end: int, setup: dict):
             if not flag:
                 img2 = Image.alpha_composite(res_img, overlay)
                 img2.save(card_output_path)
-                yandex.upload(card_output_path, f'Авито/{art}/{art}_{num}.png', overwrite=True)
-                print(f"Вторая фотография для артикула {art} сохранена: {card_output_path}")
+                disk_path = f'Авито/{art}/{art}_{num}.png'
+                yandex.upload(card_output_path, disk_path, overwrite=True)
+                yandex.publish(disk_path)
+                media_url = yandex.get_meta(disk_path).public_url
+                if media_url is not None:
+                    media_url = media_url.replace('yadi.sk', 'disk.yandex.ru')
+                dbconn.delete_media(art, disk_path)
+                dbconn.create_media(media_url, disk_path, art, f'ID-M-{art}-0-0', f'Карточка с блистером, коробка, {series}, {name}')
+                print(f"Вторая фотография для артикула {art} сохранена")
                 os.remove(card_output_path)
                 num += 1
 
@@ -375,7 +394,7 @@ async def main(start: int, end: int, setup: dict):
                     output_path = file_path.replace('.jpg', '_no_bg.png')
                     result.save(output_path)
                 except Exception as e:
-                    print(f"Ошибка при удалении фона для изображения {art} (вторая фотография): {e}")
+                    print(f"Ошибка при удалении фона для изображения {art} (третья фотография): {e}")
                     output_path = file_path  # Оставляем оригинал, если что-то пошло не так
             else:
                 output_path = file_path  # Если фон белый, оставляем оригинальное изображение
@@ -399,18 +418,22 @@ async def main(start: int, end: int, setup: dict):
                 img3 = Image.alpha_composite(res_img, overlay)
                 output_path = os.path.join(workspace, f'{art}_{num}.png')
                 img3.save(output_path)
-                try:
-                    yandex.makedirs(f'Авито/{art}')
-                except:
-                    pass
-                yandex.upload(card_output_path, f'Авито/{art}/{art}_{num}.png', overwrite=True)
-                print(f"Третья фотография для артикула {art} сохранена: {card_output_path}")
+                disk_path = f'Авито/{art}/{art}_{num}.png'
+                yandex.upload(card_output_path, disk_path, overwrite=True)
+                yandex.publish(disk_path)
+                media_url = yandex.get_meta(disk_path).public_url
+                if media_url is not None:
+                    media_url = media_url.replace('yadi.sk', 'disk.yandex.ru')
+                dbconn.delete_media(art, disk_path)
+                dbconn.create_media(media_url, disk_path, art, f'ID-M-{art}-0-0', f'Карточка с блистером, фигурка, фотография BrickLink, {series}, {name}')
+                print(f"Третья фотография для артикула {art} сохранена")
                 os.remove(card_output_path)
             
             # Добавляем задержку между запросами
             time.sleep(3)  # Задержка на 1 секунду между запросами
+    dbconn.close()
 
 if __name__ == '__main__':
     from Setup.setup import setup
     import asyncio
-    asyncio.run(main(216, 216, setup))
+    asyncio.run(main(3, 8, setup))
